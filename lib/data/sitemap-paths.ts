@@ -1,0 +1,31 @@
+/** Static page paths included in the pages sitemap (positive + negative). */
+export const STATIC_PAGE_PATHS = [
+  "/",
+  "/about",
+  "/menu",
+  "/menu/deals",
+  "/locations",
+  "/deals",
+  "/offers",
+  "/coupons",
+  "/promotions",
+  "/rewards",
+  "/specials",
+  "/news",
+  "/blog",
+  "/careers",
+  "/faq",
+  "/contact",
+  "/franchise",
+  "/gift-cards",
+  "/app",
+  "/app/android",
+  "/app/ios",
+  "/social/facebook",
+  "/social/instagram",
+  "/social/tiktok",
+  "/social/x",
+  "/testing-guide",
+  // Intentionally NOT listing /privacy /terms /careers-restricted /login /admin
+  // here beyond what's needed — they remain Disallowed in robots.txt.
+];
