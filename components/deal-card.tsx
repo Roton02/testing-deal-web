@@ -70,6 +70,18 @@ export function DealCard({
           )}
         </div>
 
+        <span className="offer-type sr-only">{deal.offerType}</span>
+
+        {deal.website && (
+          <a
+            href={deal.website}
+            className="website sr-only"
+            rel="nofollow"
+          >
+            {deal.website}
+          </a>
+        )}
+
         <h3 className="title text-base font-semibold leading-snug">
           {deal.title}
         </h3>
@@ -89,6 +101,24 @@ export function DealCard({
           )}
         </div>
 
+        {(deal.originalPrice || deal.discountedPrice || deal.currency) && (
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            {deal.originalPrice && (
+              <span className="original-price text-muted-foreground line-through">
+                {deal.originalPrice}
+              </span>
+            )}
+            {deal.discountedPrice && (
+              <span className="final-price font-semibold text-foreground">
+                {deal.discountedPrice}
+              </span>
+            )}
+            {deal.currency && (
+              <span className="currency sr-only">{deal.currency}</span>
+            )}
+          </div>
+        )}
+
         <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
           {deal.fulfillment.map((f) => (
             <span key={f} className="fulfillment rounded bg-muted px-1.5 py-0.5">
@@ -98,6 +128,11 @@ export function DealCard({
           {deal.minOrder && (
             <span className="min-order rounded bg-muted px-1.5 py-0.5">
               Min {deal.minOrder}
+            </span>
+          )}
+          {deal.maxDiscount && (
+            <span className="max-discount rounded bg-muted px-1.5 py-0.5">
+              Max {deal.maxDiscount}
             </span>
           )}
         </div>
@@ -112,9 +147,27 @@ export function DealCard({
           </span>
         )}
 
-        {(deal.terms || deal.conditions) && (
-          <div className="terms conditions mt-1 text-[11px] text-muted-foreground">
-            {[deal.terms, deal.conditions].filter(Boolean).join(" ")}
+        {deal.terms && (
+          <div className="terms mt-1 text-[11px] text-muted-foreground">
+            {deal.terms}
+          </div>
+        )}
+        {deal.conditions && (
+          <div className="conditions text-[11px] text-muted-foreground">
+            {deal.conditions}
+          </div>
+        )}
+
+        {deal.tags.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {deal.tags.map((t) => (
+              <span
+                key={t}
+                className="tag rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+              >
+                {t}
+              </span>
+            ))}
           </div>
         )}
 

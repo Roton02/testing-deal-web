@@ -61,6 +61,10 @@ export type Deal = {
   fulfillment: Fulfillment[];
   minOrder?: string;
   maxDiscount?: string;
+  originalPrice?: string;
+  discountedPrice?: string;
+  /** Official restaurant website (rendered as a scraper-readable anchor). */
+  website?: string;
   currency?: string;
   image?: string;
   tags: string[];
@@ -208,6 +212,96 @@ restaurants
       });
     });
   });
+
+// ── Complete deals (every field populated) ──────────────────────────────────
+// These exist to exercise the auto-publish path: an EXACT-match brand that
+// already lives in the DB, a real discount, a future parseable expiry, a unique
+// title (so duplicate detection passes) and every other model field filled in.
+// Each renders all fields the scraper reads (title/description/discount/code/
+// expiry/brand/category/terms/image + price/min/max/fulfillment/currency).
+const completeDeals: Deal[] = [
+  {
+    id: "complete-mcdonalds-bigmac",
+    brand: "McDonald's", // exact match to seeded brand
+    restaurantSlug: "mcdonalds",
+    offerType: "Percentage",
+    title: "Big Mac Meal 40% Off This Week",
+    description:
+      "Get 40% off the classic Big Mac meal — two all-beef patties, special sauce, fries and a drink. Order in-store, for pickup or delivery.",
+    discount: "40% OFF",
+    code: "BIGMAC40",
+    expiry: FUTURE,
+    category: "Burgers",
+    terms: "One use per customer. Cannot be combined with other offers.",
+    conditions: "Valid at participating US locations only. Dine-in or app order.",
+    fulfillment: ["Dine-in", "Pickup", "Delivery"],
+    minOrder: "$10",
+    maxDiscount: "$8",
+    originalPrice: "$11.99",
+    discountedPrice: "$7.19",
+    website: "https://www.mcdonalds.com",
+    currency: "USD",
+    image: food("bigmac,burger"),
+    tags: ["Burgers", "Percentage", "complete", "auto-publish"],
+    placements: ["deals", "offers"],
+    testNote:
+      "COMPLETE deal, exact brand match → maximizes data-quality score for the auto-publish path.",
+  },
+  {
+    id: "complete-subway-footlong",
+    brand: "Subway", // exact match to seeded brand
+    restaurantSlug: "subway",
+    offerType: "Dollar",
+    title: "Any Footlong $6.99 — Complete Offer",
+    description:
+      "Build any Footlong sub for just $6.99 all day. Freshly made with your choice of bread, protein and veggies.",
+    discount: "$6.99",
+    code: "FOOT699",
+    expiry: FUTURE,
+    category: "Sandwiches",
+    terms: "Excludes premium subs. One per visit.",
+    conditions: "Participating locations. Online and in-app orders eligible.",
+    fulfillment: ["Dine-in", "Pickup", "Delivery"],
+    minOrder: "$6",
+    maxDiscount: "$5",
+    originalPrice: "$11.49",
+    discountedPrice: "$6.99",
+    website: "https://www.subway.com",
+    currency: "USD",
+    image: food("sandwich,sub"),
+    tags: ["Sandwiches", "Dollar", "complete", "auto-publish"],
+    placements: ["deals", "coupons"],
+    testNote:
+      "COMPLETE deal, exact brand match (Subway) → auto-publish candidate with full field coverage.",
+  },
+  {
+    id: "complete-kfc-bucket",
+    brand: "KFC", // exact match to seeded brand
+    restaurantSlug: "kfc",
+    offerType: "Percentage",
+    title: "8-Piece Bucket 30% Off — Complete Offer",
+    description:
+      "Save 30% on a freshly prepared 8-piece chicken bucket with two large sides and biscuits.",
+    discount: "30% OFF",
+    code: "BUCKET30",
+    expiry: FUTURE,
+    category: "Fried Chicken",
+    terms: "One use per customer. While supplies last.",
+    conditions: "Valid at participating locations for pickup or delivery.",
+    fulfillment: ["Pickup", "Delivery"],
+    minOrder: "$15",
+    maxDiscount: "$12",
+    originalPrice: "$24.99",
+    discountedPrice: "$17.49",
+    website: "https://www.kfc.com",
+    currency: "USD",
+    image: food("fried,chicken"),
+    tags: ["Fried Chicken", "Percentage", "complete", "auto-publish"],
+    placements: ["deals", "offers"],
+    testNote:
+      "COMPLETE deal, exact brand match (KFC) → auto-publish candidate with full field coverage.",
+  },
+];
 
 // ── Curated edge cases ──────────────────────────────────────────────────────
 const edgeCases: Deal[] = [
@@ -454,7 +548,7 @@ const edgeCases: Deal[] = [
   },
 ];
 
-export const deals: Deal[] = [...generated, ...edgeCases];
+export const deals: Deal[] = [...completeDeals, ...generated, ...edgeCases];
 
 export const dealById = (id: string) => deals.find((d) => d.id === id);
 
