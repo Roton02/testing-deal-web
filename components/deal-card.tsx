@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Deal } from "@/lib/data/deals";
 import { Badge } from "@/components/ui/badge";
+import { DealScrapeFields } from "@/components/deal-scrape-fields";
 
 /**
  * A single deal card.
@@ -70,17 +71,7 @@ export function DealCard({
           )}
         </div>
 
-        <span className="offer-type sr-only">{deal.offerType}</span>
-
-        {deal.website && (
-          <a
-            href={deal.website}
-            className="website sr-only"
-            rel="nofollow"
-          >
-            {deal.website}
-          </a>
-        )}
+        <DealScrapeFields deal={deal} />
 
         <h3 className="title text-base font-semibold leading-snug">
           {deal.title}
@@ -138,8 +129,11 @@ export function DealCard({
         </div>
 
         {deal.expiry ? (
-          <time className="expiry mt-1 text-xs text-muted-foreground" dateTime={deal.expiry}>
-            Expires {deal.expiry}
+          <time
+            className="expiry mt-1 text-xs text-muted-foreground"
+            dateTime={deal.expiry}
+          >
+            {deal.isFullData ? deal.expiry : `Expires ${deal.expiry}`}
           </time>
         ) : (
           <span className="expiry mt-1 text-xs italic text-muted-foreground">

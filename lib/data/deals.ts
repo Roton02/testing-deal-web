@@ -10,6 +10,10 @@
  */
 
 import { restaurants, restaurantBySlug } from "./restaurants";
+import {
+  scrapeLocationsForRestaurant,
+  type DealScrapeLocation,
+} from "./deal-scrape-fields";
 
 export type Fulfillment = "Dine-in" | "Pickup" | "Delivery";
 
@@ -65,6 +69,14 @@ export type Deal = {
   discountedPrice?: string;
   /** Official restaurant website (rendered as a scraper-readable anchor). */
   website?: string;
+  /** ISO date — start of offer validity (auto-publish full-data deals). */
+  startAt?: string;
+  /** Branch rows for scraper location extraction (JSON-LD script in markup). */
+  locations?: DealScrapeLocation[];
+  /** Arbitrary scraper metadata blob (JSON script in markup). */
+  metadata?: Record<string, unknown>;
+  /** When true, every quality/auto-publish field is populated on the page. */
+  isFullData?: boolean;
   currency?: string;
   image?: string;
   tags: string[];
@@ -76,6 +88,67 @@ export type Deal = {
 const FUTURE = "2027-12-31";
 const SOON = "2026-09-30";
 const PAST = "2020-01-01";
+const FULL_START = "2026-07-01";
+
+/** Build a deal with every field the scraper quality scorer expects (20/20). */
+const makeFullAutoPublishDeal = (opts: {
+  id: string;
+  restaurantSlug: string;
+  offerType: DealOfferType;
+  title: string;
+  description: string;
+  discount: string;
+  code: string;
+  originalPrice: string;
+  discountedPrice: string;
+  minOrder: string;
+  maxDiscount: string;
+  testNote: string;
+  placements: PageKey[];
+  imageQuery: string;
+  /** Override displayed brand (e.g. alias spelling) while keeping restaurantSlug. */
+  brandOverride?: string;
+}): Deal => {
+  const restaurant = restaurantBySlug(opts.restaurantSlug);
+  if (!restaurant) {
+    throw new Error(`Unknown restaurant slug: ${opts.restaurantSlug}`);
+  }
+
+  return {
+    id: opts.id,
+    brand: opts.brandOverride ?? restaurant.name,
+    restaurantSlug: restaurant.slug,
+    offerType: opts.offerType,
+    title: opts.title,
+    description: opts.description,
+    discount: opts.discount,
+    code: opts.code,
+    expiry: FUTURE,
+    startAt: FULL_START,
+    category: restaurant.category,
+    terms: "One use per customer. Cannot be combined with other offers.",
+    conditions: "Valid at participating locations only. While supplies last.",
+    fulfillment: ["Dine-in", "Pickup", "Delivery"],
+    minOrder: opts.minOrder,
+    maxDiscount: opts.maxDiscount,
+    originalPrice: opts.originalPrice,
+    discountedPrice: opts.discountedPrice,
+    website: restaurant.website,
+    currency: "USD",
+    image: food(opts.imageQuery),
+    tags: [restaurant.category, opts.offerType, "full-data", "auto-publish"],
+    placements: opts.placements,
+    locations: scrapeLocationsForRestaurant(restaurant.locationIds, 2),
+    metadata: {
+      scrapeTestSuite: "auto-publish-full",
+      dataVersion: 2,
+      brandSlug: restaurant.slug,
+      offerType: opts.offerType,
+    },
+    isFullData: true,
+    testNote: opts.testNote,
+  };
+};
 
 const food = (q: string) =>
   `https://loremflickr.com/600/400/${encodeURIComponent(q)}`;
@@ -213,94 +286,150 @@ restaurants
     });
   });
 
-// ── Complete deals (every field populated) ──────────────────────────────────
-// These exist to exercise the auto-publish path: an EXACT-match brand that
-// already lives in the DB, a real discount, a future parseable expiry, a unique
-// title (so duplicate detection passes) and every other model field filled in.
-// Each renders all fields the scraper reads (title/description/discount/code/
-// expiry/brand/category/terms/image + price/min/max/fulfillment/currency).
-const completeDeals: Deal[] = [
-  {
-    id: "complete-mcdonalds-bigmac",
-    brand: "McDonald's", // exact match to seeded brand
-    restaurantSlug: "mcdonalds",
-    offerType: "Percentage",
-    title: "Big Mac Meal 40% Off This Week",
+// ── Full-data auto-publish deals (every quality field populated) ─────────────
+// Unique titles avoid duplicate-published blocking on re-scrape. Partial deals
+// elsewhere still exercise needs_review / missing-field paths.
+const fullAutoPublishDeals: Deal[] = [
+  makeFullAutoPublishDeal({
+    id: "full-starbucks-lunch-ap",
+    restaurantSlug: "starbucks",
+    offerType: "Lunch Deal",
+    title: "Starbucks Weekday Lunch Special — Full Data Auto-Publish",
     description:
-      "Get 40% off the classic Big Mac meal — two all-beef patties, special sauce, fries and a drink. Order in-store, for pickup or delivery.",
-    discount: "40% OFF",
-    code: "BIGMAC40",
-    expiry: FUTURE,
-    category: "Burgers",
-    terms: "One use per customer. Cannot be combined with other offers.",
-    conditions: "Valid at participating US locations only. Dine-in or app order.",
-    fulfillment: ["Dine-in", "Pickup", "Delivery"],
-    minOrder: "$10",
-    maxDiscount: "$8",
-    originalPrice: "$11.99",
-    discountedPrice: "$7.19",
-    website: "https://www.mcdonalds.com",
-    currency: "USD",
-    image: food("bigmac,burger"),
-    tags: ["Burgers", "Percentage", "complete", "auto-publish"],
-    placements: ["deals", "offers"],
+      "Weekday lunch special from 11am–2pm. Handcrafted sandwich or salad plus a drink for one low price.",
+    discount: "$5.99 LUNCH",
+    code: "SBUXLUNCH",
+    originalPrice: "$9.49",
+    discountedPrice: "$5.99",
+    minOrder: "$5",
+    maxDiscount: "$4",
+    placements: ["home", "deals", "menu-deals"],
+    imageQuery: "starbucks,lunch",
     testNote:
-      "COMPLETE deal, exact brand match → maximizes data-quality score for the auto-publish path.",
-  },
-  {
-    id: "complete-subway-footlong",
-    brand: "Subway", // exact match to seeded brand
-    restaurantSlug: "subway",
-    offerType: "Dollar",
-    title: "Any Footlong $6.99 — Complete Offer",
+      "FULL DATA — exact Starbucks match, 20/20 quality fields → auto-publish path.",
+  }),
+  makeFullAutoPublishDeal({
+    id: "full-dominos-bogo-ap",
+    restaurantSlug: "dominos",
+    offerType: "BOGO",
+    title: "Domino's BOGO Pizza Night — Full Data Auto-Publish",
     description:
-      "Build any Footlong sub for just $6.99 all day. Freshly made with your choice of bread, protein and veggies.",
-    discount: "$6.99",
-    code: "FOOT699",
-    expiry: FUTURE,
-    category: "Sandwiches",
-    terms: "Excludes premium subs. One per visit.",
-    conditions: "Participating locations. Online and in-app orders eligible.",
-    fulfillment: ["Dine-in", "Pickup", "Delivery"],
-    minOrder: "$6",
+      "Buy one pizza, get one free every Tuesday. Medium or large, any toppings.",
+    discount: "BOGO",
+    code: "DOMBOGO",
+    originalPrice: "$18.99",
+    discountedPrice: "$9.49",
+    minOrder: "$15",
+    maxDiscount: "$18",
+    placements: ["home", "deals", "offers"],
+    imageQuery: "pizza,bogo",
+    testNote:
+      "FULL DATA — exact Domino's match, all fields including locations + metadata.",
+  }),
+  makeFullAutoPublishDeal({
+    id: "full-pizzahut-lunch-ap",
+    restaurantSlug: "pizza-hut",
+    offerType: "Lunch Deal",
+    title: "Pizza Hut Express Lunch Box — Full Data Auto-Publish",
+    description:
+      "Personal pan pizza, breadstick and drink combo available weekdays 11am–3pm.",
+    discount: "$5.99 LUNCH",
+    code: "PHLUNCH",
+    originalPrice: "$10.99",
+    discountedPrice: "$5.99",
+    minOrder: "$5",
     maxDiscount: "$5",
+    placements: ["home", "deals", "menu-deals"],
+    imageQuery: "pizza,lunch",
+    testNote: "FULL DATA — Pizza Hut exact match → auto-publish.",
+  }),
+  makeFullAutoPublishDeal({
+    id: "full-burgerking-combo-ap",
+    restaurantSlug: "burger-king",
+    offerType: "Combo Meal",
+    title: "Burger King Whopper Combo Feast — Full Data Auto-Publish",
+    description:
+      "Whopper meal with medium fries and drink. Flame-grilled and ready in minutes.",
+    discount: "$6.99 COMBO",
+    code: "BKCOMBO",
     originalPrice: "$11.49",
     discountedPrice: "$6.99",
-    website: "https://www.subway.com",
-    currency: "USD",
-    image: food("sandwich,sub"),
-    tags: ["Sandwiches", "Dollar", "complete", "auto-publish"],
-    placements: ["deals", "coupons"],
-    testNote:
-      "COMPLETE deal, exact brand match (Subway) → auto-publish candidate with full field coverage.",
-  },
-  {
-    id: "complete-kfc-bucket",
-    brand: "KFC", // exact match to seeded brand
+    minOrder: "$6",
+    maxDiscount: "$5",
+    placements: ["home", "deals", "menu-deals"],
+    imageQuery: "whopper,combo",
+    testNote: "FULL DATA — Burger King exact match → auto-publish.",
+  }),
+  makeFullAutoPublishDeal({
+    id: "full-kfc-bucket-ap",
     restaurantSlug: "kfc",
     offerType: "Percentage",
-    title: "8-Piece Bucket 30% Off — Complete Offer",
+    title: "KFC 8-Piece Bucket 30% Off — Full Data Auto-Publish",
     description:
       "Save 30% on a freshly prepared 8-piece chicken bucket with two large sides and biscuits.",
     discount: "30% OFF",
     code: "BUCKET30",
-    expiry: FUTURE,
-    category: "Fried Chicken",
-    terms: "One use per customer. While supplies last.",
-    conditions: "Valid at participating locations for pickup or delivery.",
-    fulfillment: ["Pickup", "Delivery"],
-    minOrder: "$15",
-    maxDiscount: "$12",
     originalPrice: "$24.99",
     discountedPrice: "$17.49",
-    website: "https://www.kfc.com",
-    currency: "USD",
-    image: food("fried,chicken"),
-    tags: ["Fried Chicken", "Percentage", "complete", "auto-publish"],
-    placements: ["deals", "offers"],
+    minOrder: "$15",
+    maxDiscount: "$12",
+    placements: ["home", "deals", "offers"],
+    imageQuery: "fried,chicken",
+    testNote: "FULL DATA — KFC exact match → auto-publish.",
+  }),
+  makeFullAutoPublishDeal({
+    id: "full-subway-footlong-ap",
+    restaurantSlug: "subway",
+    offerType: "Dollar",
+    title: "Subway Any Footlong $6.99 — Full Data Auto-Publish",
+    description:
+      "Build any Footlong sub for just $6.99 all day. Freshly made with your choice of bread, protein and veggies.",
+    discount: "$6.99",
+    code: "FOOT699",
+    originalPrice: "$11.49",
+    discountedPrice: "$6.99",
+    minOrder: "$6",
+    maxDiscount: "$5",
+    placements: ["home", "deals", "coupons"],
+    imageQuery: "sandwich,sub",
+    testNote: "FULL DATA — Subway exact match → auto-publish.",
+  }),
+  makeFullAutoPublishDeal({
+    id: "full-mcdonalds-bigmac-ap",
+    restaurantSlug: "mcdonalds",
+    offerType: "Percentage",
+    title: "McDonald's Big Mac Meal 40% Off — Full Data Auto-Publish",
+    description:
+      "Get 40% off the classic Big Mac meal — two all-beef patties, special sauce, fries and a drink.",
+    discount: "40% OFF",
+    code: "BIGMAC40",
+    originalPrice: "$11.99",
+    discountedPrice: "$7.19",
+    minOrder: "$10",
+    maxDiscount: "$8",
+    placements: ["home", "deals", "offers"],
+    imageQuery: "bigmac,burger",
+    testNote: "FULL DATA — McDonald's exact match → auto-publish.",
+  }),
+  makeFullAutoPublishDeal({
+    id: "full-starbucks-alias-ap",
+    restaurantSlug: "starbucks",
+    brandOverride: "Star bucks",
+    offerType: "Coupon Code",
+    title: "Starbucks Rewards 20% Off — Alias Full Data Auto-Publish",
+    description:
+      "Members save 20% on handcrafted beverages and bakery items this week.",
+    discount: "20% OFF",
+    code: "STAR20",
+    originalPrice: "$6.50",
+    discountedPrice: "$5.20",
+    minOrder: "$5",
+    maxDiscount: "$10",
+    placements: ["deals", "coupons"],
+    imageQuery: "starbucks,coffee",
     testNote:
-      "COMPLETE deal, exact brand match (KFC) → auto-publish candidate with full field coverage.",
-  },
+      "FULL DATA with alias brand 'Star bucks' → alias 100% match + auto-publish.",
+  }),
 ];
 
 // ── Curated edge cases ──────────────────────────────────────────────────────
@@ -548,7 +677,11 @@ const edgeCases: Deal[] = [
   },
 ];
 
-export const deals: Deal[] = [...completeDeals, ...generated, ...edgeCases];
+export const deals: Deal[] = [...fullAutoPublishDeals, ...generated, ...edgeCases];
+
+/** Deals with every scraper quality field populated (auto-publish test set). */
+export const FULL_AUTO_PUBLISH_DEALS = fullAutoPublishDeals;
+export const FULL_AUTO_PUBLISH_COUNT = fullAutoPublishDeals.length;
 
 export const dealById = (id: string) => deals.find((d) => d.id === id);
 

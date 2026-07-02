@@ -55,6 +55,37 @@ export const guideSections: { title: string; rows: GuideRow[] }[] = [
     ],
   },
   {
+    title: "Auto-Publish (full data)",
+    rows: [
+      {
+        area: "Starbucks full",
+        path: "/deal/full-starbucks-lunch-ap",
+        feature: "auto-publish 20/20 fields",
+        expectation:
+          "alias/exact match + quality ≥80% + parseable expiry → auto_published.",
+      },
+      {
+        area: "Domino's full",
+        path: "/deal/full-dominos-bogo-ap",
+        feature: "auto-publish 20/20 fields",
+        expectation: "All quality fields including locations + metadata JSON.",
+      },
+      {
+        area: "Alias + full",
+        path: "/deal/full-starbucks-alias-ap",
+        feature: "alias match + auto-publish",
+        expectation: "Brand shown as 'Star bucks' → alias 100% + auto-publish.",
+      },
+      {
+        area: "Partial deals",
+        path: "/deal/starbucks-lunchdeal-5",
+        feature: "needs_review path",
+        expectation:
+          "Match + passed validation but missing code/prices/locations → needs_review.",
+      },
+    ],
+  },
+  {
     title: "Validation (missing / invalid data)",
     rows: [
       { area: "Missing expiry", path: "/deal/edge-missing-expiry", feature: "missing field reason", expectation: "Records reason; quality reduced." },

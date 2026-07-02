@@ -13,6 +13,7 @@ import {
 import { JsonLd } from "@/components/json-ld";
 import { deals, dealById, relatedDeals } from "@/lib/data/deals";
 import { restaurantBySlug } from "@/lib/data/restaurants";
+import { DealScrapeFields } from "@/components/deal-scrape-fields";
 
 export function generateStaticParams() {
   return deals.map((d) => ({ id: d.id }));
@@ -59,6 +60,8 @@ export default async function DealDetailPage({
     description: deal.description,
     category: deal.category,
     priceCurrency: deal.currency ?? "USD",
+    validFrom:
+      deal.startAt && deal.startAt !== "INVALID" ? deal.startAt : undefined,
     validThrough:
       deal.expiry && deal.expiry !== "INVALID" ? deal.expiry : undefined,
     seller: deal.brand
@@ -114,6 +117,8 @@ export default async function DealDetailPage({
 
           <h1 className="title mt-2 text-3xl font-bold">{deal.title}</h1>
 
+          <DealScrapeFields deal={deal} />
+
           {deal.description ? (
             <p className="description mt-3 text-muted-foreground">
               {deal.description}
@@ -137,10 +142,30 @@ export default async function DealDetailPage({
             )}
           </div>
 
+          {(deal.originalPrice || deal.discountedPrice) && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+              {deal.originalPrice && (
+                <span className="original-price text-muted-foreground line-through">
+                  {deal.originalPrice}
+                </span>
+              )}
+              {deal.discountedPrice && (
+                <span className="final-price text-lg font-semibold">
+                  {deal.discountedPrice}
+                </span>
+              )}
+              {deal.currency && (
+                <span className="currency text-muted-foreground">
+                  {deal.currency}
+                </span>
+              )}
+            </div>
+          )}
+
           <dl className="mt-6 grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt className="text-muted-foreground">Offer type</dt>
-              <dd className="font-medium">{deal.offerType}</dd>
+              <dd className="offer-type font-medium">{deal.offerType}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Fulfillment</dt>
@@ -148,16 +173,39 @@ export default async function DealDetailPage({
                 {deal.fulfillment.join(", ")}
               </dd>
             </div>
+            {deal.startAt && (
+              <div>
+                <dt className="text-muted-foreground">Starts</dt>
+                <dd className="start-at font-medium">{deal.startAt}</dd>
+              </div>
+            )}
             <div>
               <dt className="text-muted-foreground">Expiry</dt>
               <dd className="expiry font-medium">
-                {deal.expiry ? deal.expiry : "Not provided"}
+                {deal.expiry
+                  ? deal.isFullData
+                    ? deal.expiry
+                    : deal.expiry
+                  : "Not provided"}
               </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Currency</dt>
               <dd className="font-medium">{deal.currency ?? "—"}</dd>
             </div>
+            {deal.website && (
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Website</dt>
+                <dd>
+                  <a
+                    href={deal.website}
+                    className="website text-primary hover:underline"
+                  >
+                    {deal.website}
+                  </a>
+                </dd>
+              </div>
+            )}
             {deal.minOrder && (
               <div>
                 <dt className="text-muted-foreground">Minimum order</dt>
@@ -167,19 +215,55 @@ export default async function DealDetailPage({
             {deal.maxDiscount && (
               <div>
                 <dt className="text-muted-foreground">Max discount</dt>
-                <dd className="font-medium">{deal.maxDiscount}</dd>
+                <dd className="max-discount font-medium">{deal.maxDiscount}</dd>
               </div>
             )}
           </dl>
+
+          {deal.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1">
+              {deal.tags.map((t) => (
+                <span
+                  key={t}
+                  className="tag rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {deal.locations && deal.locations.length > 0 && (
+            <div className="locations mt-6 rounded-lg border bg-muted/30 p-4">
+              <h3 className="mb-2 text-sm font-semibold">Participating locations</h3>
+              <ul className="space-y-2 text-sm">
+                {deal.locations.map((loc) => (
+                  <li key={`${loc.name}-${loc.address}`} className="location">
+                    <span className="location-name font-medium">{loc.name}</span>
+                    {" — "}
+                    <span className="location-address text-muted-foreground">
+                      {loc.address}
+                      {loc.city ? `, ${loc.city}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {(deal.terms || deal.conditions) && (
             <Accordion type="single" collapsible className="mt-6">
               <AccordionItem value="terms">
                 <AccordionTrigger>Terms &amp; Conditions</AccordionTrigger>
                 <AccordionContent>
-                  <p className="terms conditions text-muted-foreground">
-                    {[deal.terms, deal.conditions].filter(Boolean).join(" ")}
-                  </p>
+                  {deal.terms && (
+                    <p className="terms text-muted-foreground">{deal.terms}</p>
+                  )}
+                  {deal.conditions && (
+                    <p className="conditions text-muted-foreground">
+                      {deal.conditions}
+                    </p>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -205,6 +289,11 @@ export default async function DealDetailPage({
 
       <p className="mt-8 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
         <strong>Test note:</strong> {deal.testNote}
+        {deal.isFullData && (
+          <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-800">
+            FULL DATA / AUTO-PUBLISH
+          </span>
+        )}
       </p>
 
       {related.length > 0 && (
